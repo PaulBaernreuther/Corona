@@ -1,9 +1,9 @@
 import math
 import numpy as np
+import random
 
 def get_ax_size(ax, fig):
     bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-
     width, height = bbox.width, bbox.height
     #width *= fig.dpi
     #height *= fig.dpi
