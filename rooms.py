@@ -5,10 +5,11 @@ from functions import *
 
 radius_to_sice = 144
 radius = 0.5
+aura_on = True
 
 
 class room:
-    def __init__(self, act_size = (3,4)):
+    def __init__(self, number_infected, act_size = (3,4)):
         self.ax = None
         self.axbackground = None
         self.divider = None
@@ -24,6 +25,7 @@ class room:
         self.scatter = None
         self.scatter2 = None
         self.persons = []
+        self.number_infected = number_infected
     '''def get_divider(self, fig):
         self.border = 0.1
         while self.actual_size[0] < (self.size_on_screen[0]-2*self.border) and self.actual_size[1]<(self.size_on_screen[1]-2*self.border):
@@ -58,10 +60,12 @@ class room:
     def show_on_fig(self, fig, rows, cols, index):
         self.ax = fig.add_subplot(rows, cols, index, adjustable = "box", aspect = 1)
         self.axbackground = fig.canvas.copy_from_bbox(self.ax.bbox)
-        #self.ax.get_xaxis().set_visible(False)
-        #self.ax.get_yaxis().set_visible(False)
+        self.ax.get_xaxis().set_visible(False)
+        self.ax.get_yaxis().set_visible(False)
         self.ax.set_xlim(0, self.actual_size[0])
         self.ax.set_ylim(0, self.actual_size[1])
+        self.scatter = None
+        self.scatter2 = None
 
     def clear_room(self):
         self.draw_data = [[], [], []]
@@ -69,33 +73,58 @@ class room:
     def draw(self):
         if not self.scatter:
             self.scatter = self.ax.scatter(self.draw_data[0], self.draw_data[1], c = self.draw_data[2], s = (radius*radius_to_sice)**2*self.scale**2)
-            self.scatter2 = self.ax.scatter(self.draw_data2[0], self.draw_data2[1], sizes = self.draw_data2[2], c = "r", alpha= 0.1)
+            if aura_on:
+                self.scatter2 = self.ax.scatter(self.draw_data2[0], self.draw_data2[1], sizes = self.draw_data2[2], c = "r", alpha= 0.1)
+            print("noooo")
         else:
             self.scatter.set_offsets(np.c_[self.draw_data[0], self.draw_data[1]])
             self.scatter.set_array(np.array(self.draw_data[2]))
             self.scatter.set_sizes(np.array([(radius*radius_to_sice)**2*self.scale**2 for item in range(len(self.draw_data[0]))]))
-            self.scatter2.set_offsets(np.c_[self.draw_data2[0], self.draw_data2[1]])
-            self.scatter2.set_sizes(np.array(self.draw_data2[2]))
+            if aura_on:
+                self.scatter2.set_offsets(np.c_[self.draw_data2[0], self.draw_data2[1]])
+                self.scatter2.set_sizes(np.array(self.draw_data2[2]))
+        if aura_on:
+            return [self.scatter, self.scatter2]
+        return [self.scatter]
 
 
 
 class Person:
-    def __init__(self, room):
-        self.status = random.choice(["v", "i", "c", "d"])
+    def __init__(self, room, infected = False):
+        #self.status = random.choice(["v", "i", "c", "d"])
+        if infected:
+            self.status = "i"
+            self.infected_days = 1
+        else:
+            self.status = "v"
+            self.infected_days = 0
         self.room = room
-        self.position = self.new_random_pos()
+        self.position = [random.random()*self.room.actual_size[0], random.random()*self.room.actual_size[1]]
         self.radius = 2
 
         self.radius_anim_percentage = 1
         self.room.persons.append(self)
+        self.forward_chance = 0.5
+        self.direction = [random.random(),random.random()]#uniform distr is wahrscheinlich nicht gut
+        self.speed = 1
+
     def new_random_pos(self):
-        return [0.1+np.random.random()*(self.room.actual_size[0]-0.2), 0.1+np.random.random()*(self.room.actual_size[1]-0.2)]
+        if random.random() > self.forward_chance:
+            self.direction = [random.random(),random.random()]
+        return [self.position[0]+random.random()*self.speed*self.direction[0],self.position[1]+random.random()*self.speed*self.direction[1]]
+        #return [0.1+np.random.random()*(self.room.actual_size[0]-0.2), 0.1+np.random.random()*(self.room.actual_size[1]-0.2)]
     def wiggle(self):
         factor = 1
-        self.position[0] += np.random.random()*(factor)
-        self.position[1] += np.random.random()*(factor)
-        self.position[0] -= np.random.random()*(factor)
-        self.position[1] -= np.random.random()*(factor)
+        old_position = self.position
+        while True:
+            self.position[0] += np.random.random()*(factor)
+            self.position[1] += np.random.random()*(factor)
+            self.position[0] -= np.random.random()*(factor)
+            self.position[1] -= np.random.random()*(factor)
+            if (self.room.actual_size[0]>self.position[0]>0 and self.room.actual_size[1]>self.position[1]>0) or True:
+                break
+            print("we got to far")
+            self.position = old_position
     def register(self):
         colors = {"v": 0.1, "i": 0.2, "c": 0.3, "d": 0.4}
         color = colors[self.status]
