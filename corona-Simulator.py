@@ -8,8 +8,8 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.5, frames_per_day = 1):
-        self.number_of_rooms = 2
+    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.2, bed_chance = 0.5, frames_per_day = 12):
+        self.number_of_rooms = 1
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
@@ -255,20 +255,20 @@ ax = fig.add_subplot(2,2,1)
 
 
 k = 9
-newscenario = Quarantine()
+newscenario = Quarantine(symptom_chance=0.8, number_infected=200)
 newscenario.create_rooms()
 newscenario.draw_all_rooms()
 
 start = time.time()
 def update(frame_number):
     if newscenario.current_frame >= newscenario.frames_per_day:
-        x, data = newscenario.time_step()
-    newscenario.update_room_axes()
-    if newscenario.current_frame >= newscenario.frames_per_day:
         newscenario.current_frame = 0
+        x, data = newscenario.time_step()
         ax.clear()
         for char in ["d", "c", "v", "i"]:
             ax.fill(x, data[char], c = colors[char])
+        ax.plot(x, [newscenario.healthcare_max for i in x], c = "0.5")
+    newscenario.update_room_axes()
     newscenario.current_frame += 1
     return newscenario.update_scatters()+[ax]
 
