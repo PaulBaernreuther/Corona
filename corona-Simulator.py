@@ -8,7 +8,7 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.5):
+    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.5, frames_per_day = 1):
         self.number_of_rooms = 2
         self.shape = shape
         self.members = members
@@ -27,6 +27,8 @@ class scenario:
         self.data = {"i": [], "v": [], "c": [], "d": []}
         self.list_of_infected = []
         self.beds = self.healthcare_max
+        self.frames_per_day = frames_per_day
+        self.current_frame = 0
     def find_opt_arangement(self):
         a, b = fig.get_size_inches()
         return find_opt_arangement(self.number_of_rooms, ratio=(self.shape[1] * a / 2) / (self.shape[0] * b))
@@ -114,7 +116,6 @@ class scenario:
             room.calculate_infected(self.list_of_infected)
 
     def calculate_beds(self):
-        print(self.beds)
         for prsn in self.list_of_infected.copy():
             if prsn.will_need_bed and self.beds > 0:
                 self.beds -= 1
@@ -131,6 +132,7 @@ class scenario:
         self.calculate_beds()
         self.calculate_death()
         self.update_data()
+        return self.update_relative_graph()
 
     def jump(self, prsn, codomain, pos = None):
         prsn.room.persons.remove(prsn)
@@ -259,12 +261,15 @@ newscenario.draw_all_rooms()
 
 start = time.time()
 def update(frame_number):
-    newscenario.time_step()
+    if newscenario.current_frame >= newscenario.frames_per_day:
+        x, data = newscenario.time_step()
     newscenario.update_room_axes()
-    x, data = newscenario.update_relative_graph()
-    ax.clear()
-    for char in ["d", "c", "v", "i"]:
-        ax.fill(x, data[char], c = colors[char])
+    if newscenario.current_frame >= newscenario.frames_per_day:
+        newscenario.current_frame = 0
+        ax.clear()
+        for char in ["d", "c", "v", "i"]:
+            ax.fill(x, data[char], c = colors[char])
+    newscenario.current_frame += 1
     return newscenario.update_scatters()+[ax]
 
 
