@@ -88,8 +88,10 @@ class Room:
             if prsn.status == "i":
                 prsn.infected_days += 1
                 if prsn.infected_days >= prsn.max_infected_time:
-                    if prsn.is_in_bed:
-                        beds += 1
+                    if prsn.is_in_bed or prsn.will_need_bed == False:
+                        if prsn.is_in_bed:
+                            beds += 1
+                        prsn.is_in_bed = False
                         if random.random() <= prsn.deathrate:
                             prsn.status = "d"
                         else:
@@ -144,7 +146,7 @@ class Room:
 
 
 class Person:
-    def __init__(self, room, infectionrate = 0.2, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 10, speed = 0.5, radius = 2):
+    def __init__(self, room, infectionrate = 0.2, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 10, speed = 0.5, radius = 2, will_need_bed = False):
 
         self.room = room
         self.status = "v"
@@ -164,6 +166,7 @@ class Person:
         self.angle = random.random()
         self.direction = [0,0]#uniform distr is wahrscheinlich nicht gut
         self.is_in_bed = False
+        self.will_need_bed = will_need_bed
 
     def new_random_pos(self):
         return [self.room.border+np.random.random()*(self.room.actual_size[0]-2*self.room.border), self.room.border+np.random.random()*(self.room.actual_size[1]-2*self.room.border)]

@@ -8,8 +8,8 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.001, bed_chance = 0.5):
-        self.number_of_rooms = 1
+    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.5):
+        self.number_of_rooms = 2
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
@@ -38,8 +38,11 @@ class scenario:
             newroom.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
             newroom.compute_scale(fig)
             the_infected = random.sample(range(self.members), self.number_infected)
+            those_who_will_need_bed = random.sample(range(self.members), int(self.bed_chance * self.members))
             for m in range(self.members):
                 person = Person(newroom, max_infected_time=self.max_infected_time, deathrate=self.deathrate, deathrate_without_healthcare=self.deathrate_without_healthcare, infectionrate= self.infectionrate, radius = self.radius)
+                if m in those_who_will_need_bed:
+                    person.will_need_bed = True
                 if m in the_infected:
                     person.status = "i"
                 person.register()
@@ -49,7 +52,7 @@ class scenario:
             shape = size
         else:
             shape = self.shape
-        specialroom = Room(number_infected=self.number_infected, act_size = shape, members = self.members)
+        specialroom = Room(number_infected=self.number_infected, act_size = shape, members = 0)
         self.number_of_rooms += 1
         i, j = self.find_opt_arangement()
         for l, room in enumerate(self.rooms):
@@ -111,8 +114,9 @@ class scenario:
             room.calculate_infected(self.list_of_infected)
 
     def calculate_beds(self):
+        print(self.beds)
         for prsn in self.list_of_infected.copy():
-            if random.random() <= self.bed_chance and self.beds > 0:
+            if prsn.will_need_bed and self.beds > 0:
                 self.beds -= 1
                 prsn.is_in_bed = True
             self.list_of_infected.remove(prsn)
@@ -212,6 +216,35 @@ class Supermarket(scenario):
         return super().update_scatters()
 
 
+class Quarantine(scenario):
+    def __init__(self, symptom_chance = 0.3, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.symptom_chance = symptom_chance
+
+    def create_rooms(self):
+        super().create_rooms()
+        for room in self.rooms:
+            for prsn in room.persons:
+                prsn.room_of_origin = prsn.room
+                prsn.home = prsn.position
+                if random.random() <= self.symptom_chance:
+                    prsn.symptomatic = True
+                else:
+                    prsn.symptomatic = False
+        self.quarantine_room = self.new_room()
+        self.quarantine_room.ax.set_title("Quarantine")
+
+    def update_scatters(self):
+        for room in self.rooms:
+            for prsn in room.persons:
+                if prsn.status == "i"and prsn.symptomatic and prsn.room is not self.quarantine_room:
+                    self.jump(prsn, self.quarantine_room)
+        for prsn in self.quarantine_room.persons:
+            if prsn.status == "c" or prsn.status == "d":
+                self.jump(prsn, prsn.room_of_origin, prsn.home)
+        return super().update_scatters()
+
+
 fig = plt.figure(figsize=(11,4))
 fig.patch.set_facecolor('#123456')
 fig.patch.set_alpha(0.7)
@@ -220,7 +253,7 @@ ax = fig.add_subplot(2,2,1)
 
 
 k = 9
-newscenario = Supermarket()
+newscenario = Quarantine()
 newscenario.create_rooms()
 newscenario.draw_all_rooms()
 
