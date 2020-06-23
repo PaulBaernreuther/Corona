@@ -45,7 +45,7 @@ class Room:
             self.data[person.status][-1] += 1
 
     def calculate_infected(self):
-        discrete_raster = [[[] for i in range(self.actual_size[0])] for j in range(self.actual_size[1])]
+        discrete_raster = [[[] for i in range(self.actual_size[1])] for j in range(self.actual_size[0])]
         for person in self.persons:
             x, y = int(person.position[0]), int(person.position[1])
             discrete_raster[x][y].append(person)
