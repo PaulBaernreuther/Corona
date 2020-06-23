@@ -3,9 +3,14 @@ import numpy as np
 import random
 from functions import *
 
+from matplotlib.colors import ListedColormap, BoundaryNorm
+
 radius_to_sice = 144
 radius = 0.5
 aura_on = True
+colors = {"i":'r',"v":'b',"c": 'g',"d": 'k'}
+cmap = ListedColormap(colors.values())
+norm = BoundaryNorm([0,1,2,3,4], cmap.N)
 
 
 class Room:
@@ -40,15 +45,42 @@ class Room:
             self.data[person.status][-1] += 1
 
     def calculate_infected(self):
-        for prsn in self.persons:
-            if prsn.status == "i":
-                for otherprsn in self.persons:
-                    if otherprsn.status == "v":
-                        distance = np.linalg.norm(np.array(prsn.position) - np.array(otherprsn.position))
-                        if distance <= prsn.radius or distance <= otherprsn.radius:
-                            if random.random() <= prsn.infectionrate:
-                                otherprsn.status = "i"
-                                otherprsn.infected_days = 0
+        discrete_raster = [[[] for i in range(self.actual_size[0])] for j in range(self.actual_size[1])]
+        for person in self.persons:
+            x, y = int(person.position[0]), int(person.position[1])
+            discrete_raster[x][y].append(person)
+        pers_sorted_by_radius = sorted([person for person in self.persons if person.status in ["v", "i"]], key=lambda person: -person.radius)
+        for count, person in enumerate(pers_sorted_by_radius):
+            person.index = count
+        for person in pers_sorted_by_radius:
+            x, y = int(person.position[0]), int(person.position[1])
+            rad = person.radius
+            rad_int = int(rad)
+            i_min = max(x-rad_int, 0)
+            i_max = min(x+rad_int+1, int(self.actual_size[0])-1)
+            j_min = max(y-rad_int, 0)
+            j_max = min(y+rad_int+1, int(self.actual_size[1])-1)
+            index = person.index
+            current_radius = person.radius
+            curr_status = person.status
+            get_infected = False
+            for i in range(i_min, i_max):
+                for j in range(j_min, j_max):
+                    for otherperson in discrete_raster[i][j]:
+                        if otherperson.index >= index:
+                            continue
+                        distance = np.linalg.norm(np.array(person.position) - np.array(otherperson.position))
+                        if distance <= current_radius:
+                            if random.random() <= person.infectionrate:
+                                if curr_status == "i":
+                                    otherperson.status = "i"
+                                elif otherperson.status == "i":
+                                    get_infected = True
+            if get_infected:
+                person.status = "i"
+                person.infected_days = 0
+
+
 
     def calculate_death(self):
         for prsn in self.persons:
@@ -86,7 +118,7 @@ class Room:
         self.draw_data2 = [[], [], []]
     def draw(self):
         if not self.scatter:
-            self.scatter = self.ax.scatter(self.draw_data[0], self.draw_data[1], c = self.draw_data[2], s = (radius*radius_to_sice)**2*self.scale**2)
+            self.scatter = self.ax.scatter(self.draw_data[0], self.draw_data[1], c = self.draw_data[2], s = (radius*radius_to_sice)**2*self.scale**2, cmap = cmap, norm = norm)
             if aura_on:
                 self.scatter2 = self.ax.scatter(self.draw_data2[0], self.draw_data2[1], sizes = self.draw_data2[2], c = "r", alpha= 0.1)
         else:
@@ -148,7 +180,7 @@ class Person:
             print("we got to far")
             self.position = old_position
     def register(self):
-        colors = {"v": 0.1, "i": 0.2, "c": 0.3, "d": 0.4}
+        colors = { "i": 0.5, "v": 1.5, "c": 2.5, "d": 3.5}
         color = colors[self.status]
         self.room.draw_data[0].append(self.position[0])
         self.room.draw_data[1].append(self.position[1])

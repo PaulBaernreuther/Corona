@@ -8,8 +8,8 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 1, deathrate = 0.1, max_infected_time = 20, infectionrate = 0.2, shape = (40,40), members = 10, radius = 2):
-        self.number_of_rooms = 2
+    def __init__(self, number_infected = 5, deathrate = 0.1, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2):
+        self.number_of_rooms = 1
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
@@ -39,18 +39,6 @@ class scenario:
                     person.status = "i"
                 person.register()
             self.rooms.append(newroom)
-    def new_room(self):
-        specialroom = Room(number_infected=self.number_infected, act_size = self.shape, members = self.members)
-        self.number_of_rooms += 1
-        i, j = self.find_opt_arangement()
-        for l, room in enumerate(self.rooms):
-            room.ax.remove()
-            room.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
-        l = self.number_of_rooms - 1
-        specialroom.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
-        self.current_arangement = [i, j]
-        self.rooms.append(specialroom)
-        return specialroom
     def update_room_axes(self):
         i,j = self.find_opt_arangement()
         if i != self.current_arangement[0] or j != self.current_arangement[1]:
@@ -110,81 +98,6 @@ class scenario:
         self.calculate_death()
         self.update_data()
 
-    def jump(self, prsn, codomain):
-        prsn.room.persons.remove(prsn)
-        codomain.persons.append(prsn)
-        prsn.room = codomain
-        prsn.new_random_pos()
-        prsn.room.members -=1
-        codomain.members +=1
-
-class ClusterScenario(scenario):
-    def __init__(self, jumpy_percentage = 0.01, jumptime = 10, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.jumpy_percentage = jumpy_percentage
-        self.jumptime = jumptime
-        self.time_since_jump = 0
-
-    def create_rooms(self):
-        super().create_rooms()
-        for room in self.rooms:
-            for prsn in room.persons:
-                prsn.jumpy = False
-                prsn.time_since_jump = int(random.random()*self.jumptime)
-        for room in self.rooms:
-            quantity = len(room.persons)
-            the_jumpies = random.sample(range(quantity), int(quantity*self.jumpy_percentage))
-            for number in the_jumpies:
-                room.persons[number].jumpy = True
-
-    def update_scatters(self):
-        list_of_jumpers =[]
-        for room in self.rooms:
-            for prsn in room.persons:
-                if prsn.jumpy:
-                    prsn.time_since_jump += 1
-                    if prsn.time_since_jump >= self.jumptime:
-                        prsn.time_since_jump = 0
-                        list_of_jumpers.append(prsn)
-        for jumper in list_of_jumpers:
-            self.jump(jumper, random.choice(self.rooms))
-        return super().update_scatters()
-
-
-class Supermarket(scenario):
-    def __init__(self, shopping_time = 7, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.shopping_time = shopping_time
-
-    def create_rooms(self):
-        super().create_rooms()
-        for room in self.rooms:
-            for prsn in room.persons:
-                prsn.purchase_interval = 50 + int(random.random() * 20 - 2)
-                prsn.time_since_purchase = int(random.random()*prsn.purchase_interval)
-                prsn.time_in_market = 0
-                prsn.room_of_origin = prsn.room
-        self.market = self.new_room()
-        self.market.ax.set_title("Supermercado")
-
-    def update_scatters(self):
-        list_of_thrifters = []
-        for room in self.rooms:
-            for prsn in room.persons:
-                if prsn.room is self.market:
-                    prsn.time_in_market += 1
-                    if prsn.time_in_market >= self.shopping_time:
-                        prsn.time_in_market = 0
-                        prsn.purchase_interval = 50 + int(random.random() * 20 - 2)
-                        self.jump(prsn, prsn.room_of_origin)
-                    continue
-                prsn.time_since_purchase += 1
-                if prsn.time_since_purchase >= prsn.purchase_interval:
-                    prsn.time_since_purchase = 0
-                    list_of_thrifters.append(prsn)
-        for prsn in list_of_thrifters:
-            self.jump(prsn, self.market)
-        return super().update_scatters()
 
 
 
@@ -195,12 +108,11 @@ fig.patch.set_alpha(0.7)
 ax = fig.add_subplot(2,2,1)
 
 
+
 k = 9
-#newscenario = ClusterScenario(jumpy_percentage=0.2,members=200)
-newscenario = Supermarket()
+newscenario = scenario()
 newscenario.create_rooms()
 newscenario.draw_all_rooms()
-
 
 start = time.time()
 def update(frame_number):
@@ -208,13 +120,12 @@ def update(frame_number):
     newscenario.update_room_axes()
     x, data = newscenario.update_relative_graph()
     ax.clear()
-
     for char in ["d", "c", "v", "i"]:
-        ax.fill(x, data[char])
+        ax.fill(x, data[char], c = colors[char])
     return newscenario.update_scatters()+[ax]
 
 
-animation = FuncAnimation(fig, update, interval=10, blit = True)
+animation = FuncAnimation(fig, update, interval=1, blit = True)
 
 plt.show()
 
