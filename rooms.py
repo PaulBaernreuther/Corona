@@ -88,8 +88,8 @@ class Room:
             if prsn.status == "i":
                 prsn.infected_days += 1
                 if prsn.infected_days >= prsn.max_infected_time:
-                    beds += 1
                     if prsn.is_in_bed:
+                        beds += 1
                         if random.random() <= prsn.deathrate:
                             prsn.status = "d"
                         else:

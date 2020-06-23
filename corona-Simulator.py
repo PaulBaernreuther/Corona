@@ -8,7 +8,7 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.05):
+    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.001, bed_chance = 0.5):
         self.number_of_rooms = 1
         self.shape = shape
         self.members = members
@@ -124,6 +124,7 @@ class scenario:
 
     def time_step(self):
         self.calculate_infected()
+        self.calculate_beds()
         self.calculate_death()
         self.update_data()
 
