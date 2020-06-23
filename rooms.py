@@ -14,7 +14,7 @@ norm = BoundaryNorm([0,1,2,3,4], cmap.N)
 
 
 class Room:
-    def __init__(self, number_infected, act_size = (3,4), members = 100, max_infected_time = 10, deathrate = 10):
+    def __init__(self, number_infected, act_size = (3,4), members = 100):
         #plot-stuff
         self.border = 2
         self.ax = None
@@ -44,7 +44,7 @@ class Room:
         for person in self.persons:
             self.data[person.status][-1] += 1
 
-    def calculate_infected(self):
+    def calculate_infected(self, list_of_infected):
         discrete_raster = [[[] for i in range(self.actual_size[1])] for j in range(self.actual_size[0])]
         for person in self.persons:
             x, y = int(person.position[0]), int(person.position[1])
@@ -79,18 +79,27 @@ class Room:
             if get_infected:
                 person.status = "i"
                 person.infected_days = 0
+                list_of_infected.append(person)
 
 
 
-    def calculate_death(self):
+    def calculate_death(self, beds):
         for prsn in self.persons:
             if prsn.status == "i":
                 prsn.infected_days += 1
                 if prsn.infected_days >= prsn.max_infected_time:
-                    if random.random() <= prsn.deathrate:
-                        prsn.status = "d"
+                    beds += 1
+                    if prsn.is_in_bed:
+                        if random.random() <= prsn.deathrate:
+                            prsn.status = "d"
+                        else:
+                            prsn.status = "c"
                     else:
-                        prsn.status = "c"
+                        if random.random() <= prsn.deathrate_without_healthcare:
+                            prsn.status = "d"
+                        else:
+                            prsn.status = "c"
+        return beds
 
     def compute_scale(self, fig):
         a,b = get_ax_size(self.ax, fig)
@@ -135,7 +144,7 @@ class Room:
 
 
 class Person:
-    def __init__(self, room, infectionrate = 0.2, deathrate = 10, max_infected_time = 10, speed = 0.5, radius = 2):
+    def __init__(self, room, infectionrate = 0.2, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 10, speed = 0.5, radius = 2):
 
         self.room = room
         self.status = "v"
@@ -144,6 +153,7 @@ class Person:
 
         self.max_infected_time = max_infected_time
         self.deathrate = deathrate
+        self.deathrate_without_healthcare = deathrate_without_healthcare
         self.infectionrate = infectionrate
         self.speed = speed
         self.radius = radius
@@ -153,6 +163,7 @@ class Person:
         self.room.persons.append(self)
         self.angle = random.random()
         self.direction = [0,0]#uniform distr is wahrscheinlich nicht gut
+        self.is_in_bed = False
 
     def new_random_pos(self):
         return [self.room.border+np.random.random()*(self.room.actual_size[0]-2*self.room.border), self.room.border+np.random.random()*(self.room.actual_size[1]-2*self.room.border)]

@@ -8,20 +8,25 @@ import matplotlib.animation as anim
 from rooms import *
 
 class scenario:
-    def __init__(self, number_infected = 1, deathrate = 0.1, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2):
+    def __init__(self, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, healthcare_max = 0.02, bed_chance = 0.05):
         self.number_of_rooms = 1
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
         self.deathrate = deathrate
+        self.deathrate_without_healthcare = deathrate_without_healthcare
         self.max_infected_time = max_infected_time
         self.infectionrate = infectionrate
         self.radius = radius
+        self.healthcare_max = int(members * healthcare_max)
+        self.bed_chance = bed_chance
 
         self.rooms = []
         self.opt_arangement = 0,0
         self.current_arangement = [0,0]
         self.data = {"i": [], "v": [], "c": [], "d": []}
+        self.list_of_infected = []
+        self.beds = self.healthcare_max
     def find_opt_arangement(self):
         a, b = fig.get_size_inches()
         return find_opt_arangement(self.number_of_rooms, ratio=(self.shape[1] * a / 2) / (self.shape[0] * b))
@@ -34,7 +39,7 @@ class scenario:
             newroom.compute_scale(fig)
             the_infected = random.sample(range(self.members), self.number_infected)
             for m in range(self.members):
-                person = Person(newroom, max_infected_time=self.max_infected_time, deathrate=self.deathrate, infectionrate= self.infectionrate, radius = self.radius)
+                person = Person(newroom, max_infected_time=self.max_infected_time, deathrate=self.deathrate, deathrate_without_healthcare=self.deathrate_without_healthcare, infectionrate= self.infectionrate, radius = self.radius)
                 if m in the_infected:
                     person.status = "i"
                 person.register()
@@ -103,11 +108,19 @@ class scenario:
 
     def calculate_infected(self):
         for room in self.rooms:
-            room.calculate_infected()
+            room.calculate_infected(self.list_of_infected)
+
+    def calculate_beds(self):
+        for prsn in self.list_of_infected.copy():
+            if random.random() <= self.bed_chance and self.beds > 0:
+                self.beds -= 1
+                prsn.is_in_bed = True
+            self.list_of_infected.remove(prsn)
+
 
     def calculate_death(self):
         for room in self.rooms:
-            room.calculate_death()
+            self.beds = room.calculate_death(self.beds)
 
     def time_step(self):
         self.calculate_infected()
