@@ -6,7 +6,6 @@ It has a few sub-scenarios, which include:
 *multiple room, where one cannot infect another through a room, but a few persons who can jump between rooms.
 *a supermarket, where everybody needs to go at some point.
 *every person has a probability to be sent off to quarantine, where they can no longer infect others.
-
 Note that this program does not aim to simulate actual 2D space, rather it simulates a 'contact-space'
 where closeness means means how close two persons are to having physical contact, rather than actual physical closeness.
 this has the advantage of more easily calculable while staying mostly true to reality (compared to the alternative solution of just simulating actual 2D space) """
@@ -19,6 +18,26 @@ import time
 import matplotlib.animation as anim
 from rooms import *
 
+default_dict = {"members": [300,1,500,1],
+                "number of infected": [1,1,50,1],
+                "deathrate": [0.1,0.1,1,0.1],
+                "deathrate without healthcare": [0.5,0.5,1,0.05],
+                "number of infected days": [7,1,21,1],
+                "infection rate": [0.2,0.1,1,0.1],
+                "shape": [50,1,100,1],
+                "radius": [2,0.5,5,0.1],
+                "speed": [0.5,0.1,5,0.1],
+                "healthcare max": [0.1,0.01,1,0.01],
+                "chance for bad infection": [0.05,0.01,1,0.01],
+                "percentage of jumpers": [0.01,0.01,1,0.01],
+                "time between jumps": [7,1,10,1],
+                "time between purchases": [7,1,14,1],
+                "chance for symptoms": [0.6,0.1,1,0.1]}
+STEP  = False
+PLAY = True
+APPLY = False
+
+
 class scenario:
     """this is the biggest class, governing the other two classes room and person (more on those in the file rooms.
     here you can adjust all the values which influence the simulation:
@@ -26,8 +45,8 @@ class scenario:
     number_infected is the staring number of infected persons per room
     deathrate is the chance a person dies after beeing infected, while having access to healthcare
     deathrate_without_healthcare is the same, just without healtcare
-    max_infected time is how many time steps a person is going to be infected
-    infection rate is the percentage that a person is infected, when a vulnerable person and an infecete person a close enough to each other
+    max_infected_time is how many time steps a person is going to be infected
+    infection_rate is the percentage that a person is infected, when a vulnerable person and an infecete person a close enough to each other
     shape is the shape of the rooms
     members is the amount of persons per room
     radius is the radius in which person infects (or get infected by) persons (figuratively speaking a bigger radius translates to a higher amount of (the almost same) persons met)
@@ -35,8 +54,8 @@ class scenario:
     healthcare_max is the percentual amount of members. it represents the amount of people that can be treated by the healthcare system simultaniously
     bed_chance is the chance that a given person needs healthcare in order to have high chances of survival when infected
     """
-    def __init__(self, frames_per_day = 12, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, speed = 0.5, healthcare_max = 0.2, bed_chance = 0.5):
-        self.number_of_rooms = 1
+    def __init__(self, frames_per_day = 12, number_of_rooms = 1, number_infected = 1, deathrate = 0.1, deathrate_without_healthcare = 0.5, max_infected_time = 7, infectionrate = 0.2, shape = (50,50), members = 300, radius = 2, speed = 0.5, healthcare_max = 0.1, bed_chance = 0.05):
+        self.number_of_rooms = number_of_rooms
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
@@ -46,7 +65,7 @@ class scenario:
         self.infectionrate = infectionrate
         self.radius = radius
         self.speed = speed
-        self.healthcare_max = int(members * healthcare_max)
+        self.healthcare_max = int(members * healthcare_max * number_of_rooms)
         self.bed_chance = bed_chance
 
         self.rooms = []
@@ -57,6 +76,25 @@ class scenario:
         self.beds = self.healthcare_max
         self.frames_per_day = frames_per_day
         self.current_frame = 0
+        self.variables = [self.members, self.number_infected, self.deathrate, self.deathrate_without_healthcare,
+                          self.max_infected_time, self.infectionrate, self.shape, self.radius, self.speed,
+                          self.healthcare_max, self.bed_chance]
+        self.names = ["members",
+                "number of infected",
+                "deathrate",
+                "deathrate without healthcare",
+                "number of infected days",
+                "infection rate",
+                "shape",
+                "radius",
+                "speed",
+                "healthcare max",
+                "chance for bad infection",
+                "percentage of jumpers",
+                "time between jumps",
+                "time between purchases",
+                "chance for symptoms"]
+
     def find_opt_arangement(self):
         """finds the optimal arangement for the rooms, that are beeing plotted"""
         a, b = fig.get_size_inches()
@@ -95,6 +133,7 @@ class scenario:
         specialroom.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
         self.current_arangement = [i, j]
         self.rooms.append(specialroom)
+        animation._blit = False
         return specialroom
     def update_room_axes(self):
         """determines whther current arangement of rooms is still optimal"""
@@ -104,6 +143,7 @@ class scenario:
                 room.ax.remove()
                 room.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
             self.current_arangement = [i, j]
+            animation._blit = False
     def draw_all_rooms(self):
         """draws all rooms :D"""
         for thisroom in self.rooms:
@@ -179,12 +219,25 @@ class scenario:
         prsn.room.members -= 1
         codomain.members += 1
 
+    def update_variables(self):
+        self.members = current_values[self.names[0]]
+        self.number_infected = current_values[self.names[1]]
+        self.deathrate = current_values[self.names[2]]
+        self.deathrate_without_healthcare = current_values[self.names[3]]
+        self.max_infected_time = current_values[self.names[4]]
+        self.infectionrate = current_values[self.names[5]]
+        self.shape = current_values[self.names[6]]
+        self.radius = current_values[self.names[7]]
+        self.speed = current_values[self.names[8]]
+        self.healthcare_max = current_values[self.names[9]]
+        self.bed_chance = current_values[self.names[10]]
 
 
-class ClusterScenario(scenario):
+
+class Cluster(scenario):
     """a sub-scenario: it entails the inclusion of multiple rooms, which are separated from each other, by borders not crossable by the pathogen.
     but there is also persons called jumpers, who can move between rooms on occasion"""
-    def __init__(self, jumpy_percentage = 0.01, jumptime = 10, *args, **kwargs):
+    def __init__(self, jumpy_percentage = 0.01, jumptime = 7, *args, **kwargs):
         """jumpy_percentage is the percentage of persons who will later be able to 'jump'
         jumptime is the time each 'jumper' takes inbetween jumps
         time_since_jump is the time since a person has jumped last"""
@@ -192,6 +245,8 @@ class ClusterScenario(scenario):
         self.jumpy_percentage = jumpy_percentage
         self.jumptime = jumptime
         self.time_since_jump = 0
+        self.variables.append(self.jumpy_percentage)
+        self.variables.append(self.jumptime)
 
     def create_rooms(self):
         """the room initialization needs to be updated with the new variables"""
@@ -220,13 +275,20 @@ class ClusterScenario(scenario):
             self.jump(jumper, random.choice(self.rooms))
         return super().update_scatters()
 
+    def update_variables(self):
+        super().update_variables()
+        self.jumpy_percentage = current_values[self.names[11]]
+        self.jumptime =current_values[self.names[12]]
+
 
 class Supermarket(scenario):
     """a sub-scenario: it entails the inclusion of a room called supermarket, where every person needs to go in certain intervals"""
-    def __init__(self, shopping_time = 1, *args, **kwargs):
+    def __init__(self, purchase_interval = 7, *args, **kwargs):
         """shopping_time is the time every person is in the market"""
         super().__init__(*args, **kwargs)
-        self.shopping_time = shopping_time
+        self.shopping_time = 1
+        self.purchase_interval = purchase_interval
+        self.variables.append(self.shopping_time)
 
     def create_rooms(self):
         """purchase_interval is the time a person takes until they go to the supermarket again
@@ -235,8 +297,8 @@ class Supermarket(scenario):
         super().create_rooms()
         for room in self.rooms:
             for prsn in room.persons:
-                prsn.purchase_interval = 50 + int(random.random() * 20 - 2)
-                prsn.time_since_purchase = int(random.random()*prsn.purchase_interval)
+                prsn.purchase_interval = self.purchase_interval + int(random.random() * 0.5 * self.purchase_interval - 0.25 * self.purchase_interval)
+                prsn.time_since_purchase = int(random.random() * prsn.purchase_interval)
                 prsn.time_in_market = 0
                 prsn.room_of_origin = prsn.room
                 prsn.home = prsn.position
@@ -264,14 +326,19 @@ class Supermarket(scenario):
             self.jump(prsn, self.market)
         return super().update_scatters()
 
+    def update_variables(self):
+        super().update_variables()
+        self.purchase_interval = current_values[self.names[13]]
+
 
 class Quarantine(scenario):
     """a sub-scenario: it entails the inclusion of a room called quarantine.
     every person gets a chance to show symptoms, when they do they get moved to the quarantine room until they no longer infected."""
-    def __init__(self, symptom_chance = 0.3, *args, **kwargs):
+    def __init__(self, symptom_chance = 0.6, *args, **kwargs):
         """symptom_chance is the chance that a person that is infected shows symptoms (and is therefore put in quarantine)"""
         super().__init__(*args, **kwargs)
         self.symptom_chance = symptom_chance
+        self.variables.append(self.symptom_chance)
 
     def create_rooms(self):
         """just like in the other sub-scenarios we need to initialize this"""
@@ -298,6 +365,14 @@ class Quarantine(scenario):
                 self.jump(prsn, prsn.room_of_origin, prsn.home)
         return super().update_scatters()
 
+    def update_variables(self):
+        super().update_variables()
+        self.symptom_chance = current_values[self.names[14]]
+
+
+
+scenario_dict = {"scenario": scenario, "Cluster": Cluster, "Supermarket": Supermarket, "Quarantine": Quarantine}
+
 
 fig = plt.figure(figsize=(11,4))
 fig.patch.set_facecolor('#123456')
@@ -307,14 +382,29 @@ ax = fig.add_subplot(2,2,1)
 
 
 k = 9
-newscenario = Quarantine(symptom_chance=0.8, number_infected=200)
-newscenario.create_rooms()
-newscenario.draw_all_rooms()
+newscenario = Supermarket()
 
 start = time.time()
 def update(frame_number):
     """is called at ever update of the plot and therefore serves as the backbone of the animation loop"""
+    global newscenario
+    animation._blit = True
+    global PLAY
+    global STEP
+    global APPLY
+    if APPLY:
+        APPLY = False
+        animation._blit = False
+        newscenario = scenario_dict[current_scenario]()
+        newscenario.update_variables()
+        newscenario.create_rooms()
+        newscenario.draw_all_rooms()
+    if not PLAY:
+        return []
     if newscenario.current_frame >= newscenario.frames_per_day:
+        if STEP:
+            PLAY = False
+            STEP = False
         newscenario.current_frame = 0
         x, data = newscenario.time_step()
         ax.clear()
@@ -328,9 +418,149 @@ def update(frame_number):
 
 animation = FuncAnimation(fig, update, interval=1, blit = True)
 
+newscenario.create_rooms()
+newscenario.draw_all_rooms()
+
+from matplotlib.widgets import Button, Slider, RadioButtons
+
+buttonscreen = plt.figure(figsize=(5, 5))
+
+
+def add_room(a):
+    newscenario.new_room()
+
+
+class ClickButton:
+    def __init__(self, pos, label="default", func=None):
+        i, j, k = pos[0], pos[1], pos[2]
+        self.ax = buttonscreen.add_subplot(i, j, k)
+        self.label = label
+        self.button = Button(self.ax, label=self.label)
+        self.func = func
+        if func:
+            def fun(a):
+                return self.func()
+
+            self.button.on_clicked(fun)
+
+    def on_clicked(self, func):
+        def fun(a):
+            return func()
+
+        self.button.on_clicked(fun)
+
+    def on_clicked_pass_self(self, func):
+        def fun(a):
+            return func(self)
+
+        self.button.on_clicked(fun)
+
+
+'''button1 = ClickButton(3,2,1, "A")
+button2 = ClickButton(3,2,2, "B")
+button3 = ClickButton(3,2,3, "C")'''
+
+number_of_shown_options = 3
+current_option = 0
+options = [item for item in default_dict.keys()]
+current_values = {}
+current_scenario = "Standard"
+
+for key in default_dict.keys():
+    current_values[key] = default_dict[key][0]
+
+slider_options = []
+for i in range(number_of_shown_options):
+    key = options[i]
+    slider_options.append(
+        ClickButton(compute_position(3 * (number_of_shown_options + 4), 2, 2 + i, 0), "Slider " + str(i)))
+    slider_options[i].button.label.set_text(key)
+    slider_options[i].label = key
+
+up = ClickButton(compute_position(3 * (number_of_shown_options + 4), 6, 1, 1), "previous")
+down = ClickButton(compute_position(3 * (number_of_shown_options + 4), 6, number_of_shown_options + 2, 1), "next ")
+
+slider_ax = buttonscreen.add_subplot(9, 2, 4)
+slider = Slider(slider_ax, '', 0, 10, valinit=-1, valstep=0.01)
+slider.ax.set_xlim(slider.valmin, slider.valmax)
+
+rax = buttonscreen.add_subplot(3, 2, 3)
+radio = RadioButtons(rax, ("Standard", "Cluster", "Supermarket", "Quarantine"), active=0)
+
+apply = ClickButton((3, 2, 4), "apply")
+
+reset = ClickButton(compute_position(9, 7, 7, 1), "reset")
+play = ClickButton(compute_position(9, 7, 7, 3), "play/pause")
+step = ClickButton(compute_position(9, 7, 7, 5), "step")
+
+PLAY = True
+STEP = False
+current_slider_key = None
+
+
+def show_slider(slider_option):
+    key = slider_option.label
+    global current_slider_key
+    current_slider_key = key
+    slider.label.set_text(key)
+    slider.valmin = default_dict[key][1]
+    slider.valmax = default_dict[key][2]
+    slider.set_val(current_values[key])
+    print(current_values[key])
+    print(key, slider.valmin, slider.val, slider.valmax)
+    slider.ax.set_xlim(slider.valmin, slider.valmax)
+
+
+for i in range(number_of_shown_options):
+    slider_options[i].on_clicked_pass_self(show_slider)
+
+
+def play_func():
+    global PLAY
+    if PLAY:
+        PLAY = False
+    else:
+        PLAY = True
+
+
+def reset_func():
+    for key in options:
+        current_values[key] = default_dict[key][0]
+
+
+def step():
+    global PLAY
+    global STEP
+    PLAY = True
+    STEP = True
+
+
+def change_value(var):
+    current_values[current_slider_key] = var
+
+
+def up_func():
+    print("going up")
+    global current_option
+    current_option -= 1
+    for i in range(number_of_shown_options):
+        text = options[(current_option + i) % len(options)]
+        slider_options[i].button.label.set_text(text)
+        slider_options[i].label = text
+
+
+def down_func():
+    global current_option
+    current_option += 1
+    for i in range(number_of_shown_options):
+        text = options[(current_option + i) % len(options)]
+        slider_options[i].button.label.set_text(text)
+        slider_options[i].label = text
+
+
+up.on_clicked(up_func)
+down.on_clicked(down_func)
+
+slider.on_changed(change_value)
+
 plt.show()
-
-
-
-
-
