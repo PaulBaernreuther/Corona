@@ -14,7 +14,11 @@ norm = BoundaryNorm([0,1,2,3,4], cmap.N)
 
 
 class Room:
+    """class that governs all persons 'inside' it"""
     def __init__(self, number_infected, act_size = (3,4), members = 100):
+        """number_infected is the number of infected persons in this room at the beginning
+        act_size is the size of the room where one person is always one coordinate big
+        members is the amount of persons in this room at the beginning"""
         #plot-stuff
         self.border = 2
         self.ax = None
@@ -39,12 +43,14 @@ class Room:
         self.data = {"i": [], "v": [], "c": [], "d": []}
 
     def update_data(self):
+        """updates the data on infected, cured, deceased and vulnerable in this room"""
         for char in ["i", "v", "c", "d"]:
             self.data[char].append(0)
         for person in self.persons:
             self.data[person.status][-1] += 1
 
     def calculate_infected(self, list_of_infected):
+        """updates who is infected in this room"""
         discrete_raster = [[[] for i in range(self.actual_size[1])] for j in range(self.actual_size[0])]
         for person in self.persons:
             x, y = int(person.position[0]), int(person.position[1])
@@ -84,6 +90,7 @@ class Room:
 
 
     def calculate_death(self, beds):
+        """calculates who died in this room"""
         for prsn in self.persons:
             if prsn.status == "i":
                 prsn.infected_days += 1
@@ -104,6 +111,7 @@ class Room:
         return beds
 
     def compute_scale(self, fig):
+        """translates actual_size to size on screen"""
         a,b = get_ax_size(self.ax, fig)
         if self.actual_size[0]/self.actual_size[1] > a/b:
             self.size_on_screen = [a, (a/self.actual_size[0])*self.actual_size[1]]
@@ -115,6 +123,7 @@ class Room:
             self.boxpos = ((a-((b/self.actual_size[1])*self.actual_size[0]))/2, 0)
 
     def show_on_fig(self, fig, rows, cols, index):
+        """initializes the plotting of the room"""
         self.ax = fig.add_subplot(rows, cols, index, adjustable = "box", aspect = 1)
         self.axbackground = fig.canvas.copy_from_bbox(self.ax.bbox)
         self.ax.get_xaxis().set_visible(False)
@@ -125,9 +134,11 @@ class Room:
         self.scatter2 = None
 
     def clear_room(self):
+        """clears the room from the plot"""
         self.draw_data = [[], [], []]
         self.draw_data2 = [[], [], []]
     def draw(self):
+        """plots the room"""
         if not self.scatter:
             self.scatter = self.ax.scatter(self.draw_data[0], self.draw_data[1], c = self.draw_data[2], s = (radius*radius_to_sice)**2*self.scale**2, cmap = cmap, norm = norm)
             if aura_on:
@@ -146,8 +157,10 @@ class Room:
 
 
 class Person:
+    """class which represents one person"""
     def __init__(self, room, infectionrate = 0.2, deathrate = 0.01, deathrate_without_healthcare = 0.05, max_infected_time = 10, speed = 0.5, radius = 2, will_need_bed = False):
-
+        """room is the room this person is currently in
+        the rest is explained in scenario and is just given to each person like that"""
         self.room = room
         self.status = "v"
         self.infected_days = 0
@@ -169,8 +182,10 @@ class Person:
         self.will_need_bed = will_need_bed
 
     def new_random_pos(self):
+        """gives this person a new random position in its current room"""
         return [self.room.border+np.random.random()*(self.room.actual_size[0]-2*self.room.border), self.room.border+np.random.random()*(self.room.actual_size[1]-2*self.room.border)]
     def keep_going(self):
+        """the function that moves the person. it prefers to walk in a similar direction than before, in order for them to not stay in the same place all the time"""
         if not (self.room.border<self.position[0]<self.room.actual_size[0]-self.room.border and self.room.border<self.position[1]<self.room.actual_size[1]-self.room.border):
             angle_diff = 0.5
         else:
@@ -181,19 +196,8 @@ class Person:
         self.direction[0] = self.speed * math.cos(self.angle*2*math.pi)
         self.direction[1] = self.speed * math.sin(self.angle*2*math.pi)
         self.position = [self.position[0]+self.direction[0], self.position[1]+self.direction[1]]
-    def wiggle(self):
-        factor = 1
-        old_position = self.position
-        while True:
-            self.position[0] += np.random.random()*(factor)
-            self.position[1] += np.random.random()*(factor)
-            self.position[0] -= np.random.random()*(factor)
-            self.position[1] -= np.random.random()*(factor)
-            if (self.room.actual_size[0]>self.position[0]>0 and self.room.actual_size[1]>self.position[1]>0) or True:
-                break
-            print("we got to far")
-            self.position = old_position
     def register(self):
+        """updates the plotting data of the person"""
         colors = { "i": 0.5, "v": 1.5, "c": 2.5, "d": 3.5}
         color = colors[self.status]
         self.room.draw_data[0].append(self.position[0])
