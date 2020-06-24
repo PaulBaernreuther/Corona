@@ -18,7 +18,8 @@ import time
 import matplotlib.animation as anim
 from rooms import *
 
-default_dict = {"members": [300,1,500,1],
+default_dict = {"number of rooms": [1,1,12,1],
+                "members": [300,1,500,1],
                 "number of infected": [1,1,50,1],
                 "deathrate": [0.1,0.1,1,0.1],
                 "deathrate without healthcare": [0.5,0.5,1,0.05],
@@ -76,10 +77,11 @@ class scenario:
         self.beds = self.healthcare_max
         self.frames_per_day = frames_per_day
         self.current_frame = 0
-        self.variables = [self.members, self.number_infected, self.deathrate, self.deathrate_without_healthcare,
+        self.variables = [self.rooms, self.members, self.number_infected, self.deathrate, self.deathrate_without_healthcare,
                           self.max_infected_time, self.infectionrate, self.shape, self.radius, self.speed,
                           self.healthcare_max, self.bed_chance]
-        self.names = ["members",
+        self.names = ["number of rooms",
+                "members",
                 "number of infected",
                 "deathrate",
                 "deathrate without healthcare",
@@ -117,6 +119,7 @@ class scenario:
                     person.status = "i"
                 person.register()
             self.rooms.append(newroom)
+
     def new_room(self, size = None):
         """adds another room to the already existing ones"""
         if size:
@@ -134,9 +137,11 @@ class scenario:
         self.current_arangement = [i, j]
         self.rooms.append(specialroom)
         animation._blit = False
+        global keep_blit_counter
+        keep_blit_counter = 1
         return specialroom
     def update_room_axes(self):
-        """determines whther current arangement of rooms is still optimal"""
+        """determines weather current arangement of rooms is still optimal"""
         i,j = self.find_opt_arangement()
         if i != self.current_arangement[0] or j != self.current_arangement[1]:
             for l, room in enumerate(self.rooms):
@@ -144,6 +149,9 @@ class scenario:
                 room.show_on_fig(fig, i, 2 * j, (1 + (l // j)) * j + l + 1)
             self.current_arangement = [i, j]
             animation._blit = False
+            global keep_blit_counter
+            keep_blit_counter = 1
+
     def draw_all_rooms(self):
         """draws all rooms :D"""
         for thisroom in self.rooms:
@@ -220,17 +228,45 @@ class scenario:
         codomain.members += 1
 
     def update_variables(self):
-        self.members = current_values[self.names[0]]
-        self.number_infected = current_values[self.names[1]]
-        self.deathrate = current_values[self.names[2]]
-        self.deathrate_without_healthcare = current_values[self.names[3]]
-        self.max_infected_time = current_values[self.names[4]]
-        self.infectionrate = current_values[self.names[5]]
-        self.shape = current_values[self.names[6]]
-        self.radius = current_values[self.names[7]]
-        self.speed = current_values[self.names[8]]
-        self.healthcare_max = current_values[self.names[9]]
-        self.bed_chance = current_values[self.names[10]]
+        self.deathrate = current_values["deathrate"]
+        self.deathrate_without_healthcare = current_values["deathrate without healthcare"]
+        self.max_infected_time = current_values["number of infected days"]
+        self.infectionrate = current_values["infection rate"]
+        self.radius = current_values["radius"]
+        self.speed = current_values["speed"]
+        self.healthcare_max = current_values["healthcare max"]
+        self.bed_chance = current_values["chance for bad infection"]
+        for room in self.rooms:
+            room.border = 2 * int(self.speed) + 1
+            for person in room.persons:
+                person.radius = self.radius
+                person.infectionrate = self.infectionrate
+                person.deathrate = self.deathrate
+                person.max_infected_time = self.max_infected_time
+                person.speed = self.speed
+                pos = person.position
+                if pos[0] < room.border:
+                    pos[0] = room.border+1
+                elif pos[0] > room.actual_size[0] - room.border:
+                    pos[0] = room.actual_size[0] - room.border-1
+                if pos[1] < room.border:
+                    pos[1] = room.border+1
+                elif pos[1] > room.actual_size[1] - room.border:
+                    pos[1] = room.actual_size[1] - room.border-1
+                person.position = pos
+    def update_init_variables(self):
+        self.members = current_values["members"]
+        self.shape = [current_values["shape"], current_values["shape"]]
+        self.number_of_rooms = current_values["number of rooms"]
+        self.number_infected = current_values["number of infected"]
+    def destroy(self):
+        for room in self.rooms:
+            room.ax.remove()
+        animation._blit = False
+        global keep_blit_counter
+        keep_blit_counter = 1
+
+
 
 
 
@@ -277,8 +313,8 @@ class Cluster(scenario):
 
     def update_variables(self):
         super().update_variables()
-        self.jumpy_percentage = current_values[self.names[11]]
-        self.jumptime =current_values[self.names[12]]
+        self.jumpy_percentage = current_values["percentage of jumpers"]
+        self.jumptime =current_values["time between jumps"]
 
 
 class Supermarket(scenario):
@@ -302,7 +338,7 @@ class Supermarket(scenario):
                 prsn.time_in_market = 0
                 prsn.room_of_origin = prsn.room
                 prsn.home = prsn.position
-        self.market = self.new_room(size = [10,30])
+        self.market = self.new_room(size = [10,15])
         self.market.ax.set_title("Supermercado")
 
     def update_scatters(self):
@@ -328,7 +364,7 @@ class Supermarket(scenario):
 
     def update_variables(self):
         super().update_variables()
-        self.purchase_interval = current_values[self.names[13]]
+        self.purchase_interval = current_values["time between purchases"]
 
 
 class Quarantine(scenario):
@@ -367,7 +403,7 @@ class Quarantine(scenario):
 
     def update_variables(self):
         super().update_variables()
-        self.symptom_chance = current_values[self.names[14]]
+        self.symptom_chance = current_values["chance for symptoms"]
 
 
 
@@ -375,48 +411,85 @@ scenario_dict = {"scenario": scenario, "Cluster": Cluster, "Supermarket": Superm
 
 
 fig = plt.figure(figsize=(11,4))
-fig.patch.set_facecolor('#123456')
 fig.patch.set_alpha(0.7)
+
 ax = fig.add_subplot(2,2,1)
 
 
 
-k = 9
-newscenario = Supermarket()
+newscenario = scenario()
 
-start = time.time()
+last_update = []
+last_blit = False
+keep_blit = 50
+keep_blit_counter = 0
+scenario_chosen = False
+scenario_dict = {"Standard": scenario, "Supermarket": Supermarket, "Cluster": Cluster, "Quarantine": Quarantine}
+
+counter = 0
 def update(frame_number):
     """is called at ever update of the plot and therefore serves as the backbone of the animation loop"""
-    global newscenario
     animation._blit = True
+    global newscenario
+    global last_update
+    global last_blit
+    global scenario_chosen
     global PLAY
     global STEP
     global APPLY
+    new_axes = None
     if APPLY:
         APPLY = False
-        animation._blit = False
-        newscenario = scenario_dict[current_scenario]()
-        newscenario.update_variables()
-        newscenario.create_rooms()
-        newscenario.draw_all_rooms()
+        if scenario_chosen:
+            animation._blit = False
+            scenario_chosen = False
+            newscenario.destroy()
+            newscenario = scenario_dict[current_scenario]()
+            newscenario.update_variables()
+            newscenario.update_init_variables()
+            newscenario.create_rooms()
+            new_axes = [room.ax for room in newscenario.rooms]
+            #animation._blit_cache.clear()
+            newscenario.draw_all_rooms()
+        else:
+            newscenario.update_variables()
     if not PLAY:
-        return []
+        animation._blit = last_blit
+        return last_update
     if newscenario.current_frame >= newscenario.frames_per_day:
-        if STEP:
-            PLAY = False
-            STEP = False
         newscenario.current_frame = 0
         x, data = newscenario.time_step()
         ax.clear()
         for char in ["d", "c", "v", "i"]:
             ax.fill(x, data[char], c = colors[char])
         ax.plot(x, [newscenario.healthcare_max for i in x], c = "0.5")
+        ax.get_xaxis().set_animated(True)
+        ax.get_yaxis().set_animated(False)
+        if STEP:
+            PLAY = False
+            animation._blit = last_blit
+            return last_update
     newscenario.update_room_axes()
     newscenario.current_frame += 1
-    return newscenario.update_scatters()+[ax]
+    last_update = [ax.get_yaxis()] + newscenario.update_scatters() + [ax]
+    if new_axes:
+        last_update += new_axes
+    last_blit = animation._blit
+    global keep_blit_counter
+    global keep_blit
+    if keep_blit_counter > 0:
+        keep_blit_counter += 1
+        if keep_blit_counter <= keep_blit:
+            animation._blit = False
+            #animation._blit_cache.clear()
+        else:
+            keep_blit_counter = 0
+
+    print(animation._blit)
+    return last_update
 
 
-animation = FuncAnimation(fig, update, interval=1, blit = True)
+animation = FuncAnimation(fig, update, interval=10, blit = True)
 
 newscenario.create_rooms()
 newscenario.draw_all_rooms()
@@ -431,11 +504,11 @@ def add_room(a):
 
 
 class ClickButton:
-    def __init__(self, pos, label="default", func=None):
+    def __init__(self, pos, label="default", func=None, hovercolor = "0.9"):
         i, j, k = pos[0], pos[1], pos[2]
         self.ax = buttonscreen.add_subplot(i, j, k)
         self.label = label
-        self.button = Button(self.ax, label=self.label)
+        self.button = Button(self.ax, label=self.label, hovercolor = hovercolor)
         self.func = func
         if func:
             def fun(a):
@@ -455,12 +528,7 @@ class ClickButton:
 
         self.button.on_clicked(fun)
 
-
-'''button1 = ClickButton(3,2,1, "A")
-button2 = ClickButton(3,2,2, "B")
-button3 = ClickButton(3,2,3, "C")'''
-
-number_of_shown_options = 3
+number_of_shown_options = 6
 current_option = 0
 options = [item for item in default_dict.keys()]
 current_values = {}
@@ -470,19 +538,33 @@ for key in default_dict.keys():
     current_values[key] = default_dict[key][0]
 
 slider_options = []
-for i in range(number_of_shown_options):
+
+
+
+for i in range(0, number_of_shown_options//3):
     key = options[i]
     slider_options.append(
-        ClickButton(compute_position(3 * (number_of_shown_options + 4), 2, 2 + i, 0), "Slider " + str(i)))
+        ClickButton(compute_position(3 * (number_of_shown_options//3 + 7), 3, i, 0), "Slider " + str(i)))
+    slider_options[i].button.label.set_text(key)
+    slider_options[i].label = key
+for i in range(number_of_shown_options//3 , 2*(number_of_shown_options//3)):
+    key = options[i]
+    slider_options.append(
+        ClickButton(compute_position(3 * (number_of_shown_options//3 + 7), 3, i - number_of_shown_options//3   , 2), "Slider " + str(i)))
+    slider_options[i].button.label.set_text(key)
+    slider_options[i].label = key
+for i in range(2*(number_of_shown_options//3), number_of_shown_options):
+    key = options[i]
+    slider_options.append(
+        ClickButton(compute_position(3 * (number_of_shown_options//3 + 7), 3, i - 2*(number_of_shown_options//3) , 1), "Slider " + str(i)))
     slider_options[i].button.label.set_text(key)
     slider_options[i].label = key
 
-up = ClickButton(compute_position(3 * (number_of_shown_options + 4), 6, 1, 1), "previous")
-down = ClickButton(compute_position(3 * (number_of_shown_options + 4), 6, number_of_shown_options + 2, 1), "next ")
+up = ClickButton(compute_position(3 * (number_of_shown_options//3 +7), 8, number_of_shown_options//3+2, 2), "previous", hovercolor = "green")
+down = ClickButton(compute_position(3 * (number_of_shown_options//3+7), 8, number_of_shown_options//3+2, 5), "next ")
 
-slider_ax = buttonscreen.add_subplot(9, 2, 4)
+slider_ax = buttonscreen.add_subplot(9, 3, 8)
 slider = Slider(slider_ax, '', 0, 10, valinit=-1, valstep=0.01)
-slider.ax.set_xlim(slider.valmin, slider.valmax)
 
 rax = buttonscreen.add_subplot(3, 2, 3)
 radio = RadioButtons(rax, ("Standard", "Cluster", "Supermarket", "Quarantine"), active=0)
@@ -493,9 +575,7 @@ reset = ClickButton(compute_position(9, 7, 7, 1), "reset")
 play = ClickButton(compute_position(9, 7, 7, 3), "play/pause")
 step = ClickButton(compute_position(9, 7, 7, 5), "step")
 
-PLAY = True
-STEP = False
-current_slider_key = None
+current_slider_key = "number of rooms"
 
 
 def show_slider(slider_option):
@@ -517,6 +597,8 @@ for i in range(number_of_shown_options):
 
 def play_func():
     global PLAY
+    global STEP
+    STEP = False
     if PLAY:
         PLAY = False
     else:
@@ -526,23 +608,46 @@ def play_func():
 def reset_func():
     for key in options:
         current_values[key] = default_dict[key][0]
+    global current_slider_key
+    key = current_slider_key
+    slider.label.set_text(key)
+    slider.valmin = default_dict[key][1]
+    slider.valmax = default_dict[key][2]
+    slider.set_val(current_values[key])
+    print(current_values[key])
+    print(key, slider.valmin, slider.val, slider.valmax)
+    slider.ax.set_xlim(slider.valmin, slider.valmax)
 
 
-def step():
+
+def step_func():
     global PLAY
     global STEP
+    print("steptanz", PLAY, STEP)
     PLAY = True
     STEP = True
 
+def apply_func():
+    global APPLY
+    global PLAY
+    global STEP
+    APPLY = True
+    PLAY = True
+    STEP = False
+
 
 def change_value(var):
-    current_values[current_slider_key] = var
+    rounded_var = int((var - var%default_dict[current_slider_key][3])*100)/100
+    if default_dict[current_slider_key][3] == 1:
+        rounded_var = int(rounded_var)
+    slider.valtext.set_text(str(rounded_var))
+    current_values[current_slider_key] = rounded_var
 
 
 def up_func():
     print("going up")
     global current_option
-    current_option -= 1
+    current_option -= number_of_shown_options
     for i in range(number_of_shown_options):
         text = options[(current_option + i) % len(options)]
         slider_options[i].button.label.set_text(text)
@@ -551,16 +656,27 @@ def up_func():
 
 def down_func():
     global current_option
-    current_option += 1
+    current_option += number_of_shown_options
     for i in range(number_of_shown_options):
         text = options[(current_option + i) % len(options)]
         slider_options[i].button.label.set_text(text)
         slider_options[i].label = text
 
+def radio_func(string):
+    global current_scenario
+    global scenario_chosen
+    current_scenario = string
+    scenario_chosen = True
+
+radio.on_clicked(radio_func)
 
 up.on_clicked(up_func)
 down.on_clicked(down_func)
 
 slider.on_changed(change_value)
+play.on_clicked(play_func)
+step.on_clicked(step_func)
+reset.on_clicked(reset_func)
+apply.on_clicked(apply_func)
 
 plt.show()
