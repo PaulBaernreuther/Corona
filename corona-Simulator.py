@@ -19,6 +19,26 @@ import time
 import matplotlib.animation as anim
 from rooms import *
 
+default_dict = {"members": [300,1,500,1],
+                "number of infected": [1,1,50,1],
+                "deathrate": [0.1,0.1,1,0.1],
+                "deathrate without healthcare": [0.5,0.5,1,0.05],
+                "number of infected days": [7,1,21,1],
+                "infection rate": [0.2,0.1,1,0.1],
+                "shape": [50,1,100,1],
+                "radius": [2,0.5,5,0.1],
+                "speed": [0.5,0.1,5,0.1],
+                "healthcare max": [0.1,0.01,1,0.01],
+                "chance for bad infection": [0.05,0.01,1,0.01],
+                "percentage of jumpers": [0.01,0.01,1,0.01],
+                "time between jumps": [7,1,10,1],
+                "time between purchases": [7,1,14,1],
+                "chance for symptoms": [0.6,0.1,1,0.1]}
+global STEP  = False
+global PLAY = False
+global RESET = False
+
+
 class scenario:
     """this is the biggest class, governing the other two classes room and person (more on those in the file rooms.
     here you can adjust all the values which influence the simulation:
@@ -35,8 +55,8 @@ class scenario:
     healthcare_max is the percentual amount of members. it represents the amount of people that can be treated by the healthcare system simultaniously
     bed_chance is the chance that a given person needs healthcare in order to have high chances of survival when infected
     """
-    def __init__(self, frames_per_day = 12, number_infected = 3, deathrate = 0.01, deathrate_without_healthcare = 0.5, max_infected_time = 20, infectionrate = 0.2, shape = (100,100), members = 2000, radius = 2, speed = 0.5, healthcare_max = 0.2, bed_chance = 0.5):
-        self.number_of_rooms = 1
+    def __init__(self, frames_per_day = 12, number_of_rooms = 1, number_infected = 1, deathrate = 0.1, deathrate_without_healthcare = 0.5, max_infected_time = 7, infectionrate = 0.2, shape = (50,50), members = 300, radius = 2, speed = 0.5, healthcare_max = 0.1, bed_chance = 0.05):
+        self.number_of_rooms = number_of_rooms
         self.shape = shape
         self.members = members
         self.number_infected = number_infected
@@ -46,7 +66,7 @@ class scenario:
         self.infectionrate = infectionrate
         self.radius = radius
         self.speed = speed
-        self.healthcare_max = int(members * healthcare_max)
+        self.healthcare_max = int(members * healthcare_max * number_of_rooms)
         self.bed_chance = bed_chance
 
         self.rooms = []
@@ -181,10 +201,10 @@ class scenario:
 
 
 
-class ClusterScenario(scenario):
+class Cluster(scenario):
     """a sub-scenario: it entails the inclusion of multiple rooms, which are separated from each other, by borders not crossable by the pathogen.
     but there is also persons called jumpers, who can move between rooms on occasion"""
-    def __init__(self, jumpy_percentage = 0.01, jumptime = 10, *args, **kwargs):
+    def __init__(self, jumpy_percentage = 0.01, jumptime = 7, *args, **kwargs):
         """jumpy_percentage is the percentage of persons who will later be able to 'jump'
         jumptime is the time each 'jumper' takes inbetween jumps
         time_since_jump is the time since a person has jumped last"""
@@ -223,10 +243,11 @@ class ClusterScenario(scenario):
 
 class Supermarket(scenario):
     """a sub-scenario: it entails the inclusion of a room called supermarket, where every person needs to go in certain intervals"""
-    def __init__(self, shopping_time = 1, *args, **kwargs):
+    def __init__(self, purchase_interval = 7, *args, **kwargs):
         """shopping_time is the time every person is in the market"""
         super().__init__(*args, **kwargs)
-        self.shopping_time = shopping_time
+        self.shopping_time = 1
+        self.purchase_interval = purchase_interval
 
     def create_rooms(self):
         """purchase_interval is the time a person takes until they go to the supermarket again
@@ -235,8 +256,8 @@ class Supermarket(scenario):
         super().create_rooms()
         for room in self.rooms:
             for prsn in room.persons:
-                prsn.purchase_interval = 50 + int(random.random() * 20 - 2)
-                prsn.time_since_purchase = int(random.random()*prsn.purchase_interval)
+                prsn.purchase_interval = self.purchase_interval + int(random.random() * 0.5 * self.purchase_interval - 0.25 * self.purchase_interval)
+                prsn.time_since_purchase = int(random.random() * prsn.purchase_interval)
                 prsn.time_in_market = 0
                 prsn.room_of_origin = prsn.room
                 prsn.home = prsn.position
@@ -268,7 +289,7 @@ class Supermarket(scenario):
 class Quarantine(scenario):
     """a sub-scenario: it entails the inclusion of a room called quarantine.
     every person gets a chance to show symptoms, when they do they get moved to the quarantine room until they no longer infected."""
-    def __init__(self, symptom_chance = 0.3, *args, **kwargs):
+    def __init__(self, symptom_chance = 0.6, *args, **kwargs):
         """symptom_chance is the chance that a person that is infected shows symptoms (and is therefore put in quarantine)"""
         super().__init__(*args, **kwargs)
         self.symptom_chance = symptom_chance
@@ -299,6 +320,10 @@ class Quarantine(scenario):
         return super().update_scatters()
 
 
+
+scenario_dict = {"scenario": scenario, "Cluster": Cluster, "Supermarket": Supermarket, "Quarantine": Quarantine}
+
+
 fig = plt.figure(figsize=(11,4))
 fig.patch.set_facecolor('#123456')
 fig.patch.set_alpha(0.7)
@@ -307,14 +332,27 @@ ax = fig.add_subplot(2,2,1)
 
 
 k = 9
-newscenario = Quarantine(symptom_chance=0.8, number_infected=200)
+newscenario = Supermarket()
 newscenario.create_rooms()
 newscenario.draw_all_rooms()
 
 start = time.time()
 def update(frame_number):
     """is called at ever update of the plot and therefore serves as the backbone of the animation loop"""
+    global PLAY
+    global STEP
+    global RESET
+    if RESET:
+        RESET = False
+        animation._blit = False
+        newscenario = scenario_dict[current_scenario]()
+        
+    if not PLAY:
+        return []
     if newscenario.current_frame >= newscenario.frames_per_day:
+        if STEP:
+            PLAY = False
+            STEP = False
         newscenario.current_frame = 0
         x, data = newscenario.time_step()
         ax.clear()
