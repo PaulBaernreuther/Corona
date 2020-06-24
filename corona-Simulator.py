@@ -234,7 +234,7 @@ class scenario:
         self.infectionrate = current_values["infection rate"]
         self.radius = current_values["radius"]
         self.speed = current_values["speed"]
-        self.healthcare_max = current_values["healthcare max"]
+        self.healthcare_max = current_values["healthcare max"] * current_values["number of rooms"] * current_values["members"]
         self.bed_chance = current_values["chance for bad infection"]
         for room in self.rooms:
             room.border = 2 * int(self.speed) + 1
@@ -485,7 +485,7 @@ def update(frame_number):
         else:
             keep_blit_counter = 0
 
-    print(animation._blit)
+    #print(animation._blit)
     return last_update
 
 
